@@ -1,0 +1,8 @@
+Array
+(
+    [name] => Ram Baral
+    [email] => ramey@gmail.com
+    [phone_no] => 9855213041
+    [user_address] => Lakeside
+    [password] => ramey
+)

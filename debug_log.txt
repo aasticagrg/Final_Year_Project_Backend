@@ -1,0 +1,7 @@
+Array
+(
+    [full_name] => Anshu Gurung
+    [email] => anshu@gmail.com
+    [phone] => 9854421222
+    [message] => Hello, I am writing to report an issue with my Airbnb booking. The problem is the host was unresponsive. This situation has caused inconvenience, and I kindly request assistance in resolving it promptly.
+)
