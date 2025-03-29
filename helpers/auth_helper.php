@@ -1,10 +1,11 @@
 <?php
 
-include '../helpers/connection.php';
+include 'connection.php';
 
 function getUserIdFromToken($token) {
     global $conn;
-    
+
+    // Straightforward SQL query
     $sql = "SELECT user_id, vendor_id, role FROM tokens WHERE token='$token'";
     $result = mysqli_query($conn, $sql);
     $row = mysqli_fetch_assoc($result);
@@ -20,7 +21,7 @@ function getUserIdFromToken($token) {
     return [
         'user_id' => $row['user_id'] ?? null,
         'vendor_id' => $row['vendor_id'] ?? null,
-        'role' => $row['role'] ?? null
+        'role' => $row['role'] ?? null,
     ];
 }
 
@@ -32,6 +33,7 @@ function isAdmin($token) {
         return false;
     }
 
+    // Straightforward SQL query
     $sql = "SELECT * FROM users WHERE user_id='{$userData['user_id']}' AND role='admin'";
     $result = mysqli_query($conn, $sql);
     $row = mysqli_fetch_assoc($result);
@@ -43,6 +45,8 @@ function isVendor($token) {
     global $conn;
 
     $userData = getUserIdFromToken($token);
+
+    // Check if vendor_id exists
     return $userData['vendor_id'] ? true : false;
 }
 

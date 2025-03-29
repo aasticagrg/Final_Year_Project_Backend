@@ -1,36 +1,52 @@
 <?php
 include '../helpers/connection.php';
 
-// Check if the request method is POST
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['success' => false, 'message' => 'Invalid request method']);
-    exit();
-}
+if (isset($_POST['name'], $_POST['email'], $_POST['password'], $_POST['phone_no'], $_POST['user_address'])) {
 
-// Debugging: Save incoming POST data to a log file
-file_put_contents('debug_log.txt', print_r($_POST, true));
-
-// Check if required fields are set
-if (isset($_POST['full_name'], $_POST['email'], $_POST['message'])) {
-    $full_name = $_POST['full_name'];
     $email = $_POST['email'];
-    $phone = isset($_POST['phone']) ? $_POST['phone'] : ''; // Phone is optional
-    $message = $_POST['message'];
+    $name = $_POST['name'];
+    $password = $_POST['password'];
+    $phone_no = $_POST['phone_no'];
+    $user_address = $_POST['user_address'];
 
-    // Insert into database
-    $sql = "INSERT INTO contacts (full_name, email, phone, message) VALUES ('$full_name', '$email', '$phone', '$message')";
+    // Check if email already exists
+    $sql = "SELECT * FROM users WHERE email='$email'";
+    $result = mysqli_query($conn, $sql);
+    $count = mysqli_num_rows($result);
+
+    if ($count > 0) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Email already exists',
+        ]);
+        exit();
+    }
+
+    // Hash the password
+    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+
+    // Insert new user (excluding user_verification)
+    $sql = "INSERT INTO users (name, email, password, phone_no, user_address, role, registration_date) 
+            VALUES ('$name', '$email', '$hashedPassword', '$phone_no', '$user_address', 'user', CURDATE())";
+
     $result = mysqli_query($conn, $sql);
 
-    if ($result) {
-        echo json_encode(['success' => true, 'message' => 'Your Message is sent successfully!']);
+    if (!$result) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Failed to register user',
+        ]);
+        exit();
     } else {
-        echo json_encode(['success' => false, 'message' => 'Failed to send message']);
+        echo json_encode([
+            'success' => true,
+            'message' => 'User registered successfully',
+        ]);
     }
 } else {
     echo json_encode([
         'success' => false,
-        'message' => 'Please fill in all required fields.',
-        'received_data' => $_POST // Debugging: Shows received POST data
+        'message' => 'All fields are required ',
     ]);
 }
 ?>

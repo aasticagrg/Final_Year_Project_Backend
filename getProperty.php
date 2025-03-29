@@ -1,7 +1,9 @@
 <?php
 include 'helpers/connection.php';
 
-$sql = "SELECT * FROM properties"; // Fetch all properties
+// Fetch properties with category name instead of category_id
+$sql = "SELECT * FROM properties 
+        JOIN categories ON properties.category_id = categories.category_id";
 
 $result = mysqli_query($conn, $sql);
 
