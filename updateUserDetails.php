@@ -36,22 +36,44 @@ if (!$userData['user_id']) {
 $userId = $userData['user_id'];
 
 try {
-    $query = "SELECT name, email, phone_no, user_address, user_verification FROM users WHERE user_id = ?";
-    $stmt = $conn->prepare($query);
+    $name = $_POST['name'] ?? '';
+    $phone_no = $_POST['phone_no'] ?? '';
+    $user_address = $_POST['user_address'] ?? '';
+    $user_verification = $_POST['user_verification'] ?? null;
 
+    // Validate required fields
+    if (empty($name) || empty($phone_no) || empty($user_address)) {
+        echo json_encode(['success' => false, 'message' => 'Required fields are missing']);
+        exit();
+    }
+
+    // Prepare base query
+    $query = "UPDATE users SET name = ?, phone_no = ?, user_address = ?";
+    $params = [$name, $phone_no, $user_address];
+    $types = "sss";
+
+    // Add verification document if provided
+    if ($user_verification) {
+        $query .= ", user_verification = ?";
+        $params[] = $user_verification;
+        $types .= "s";
+    }
+
+    $query .= " WHERE user_id = ?";
+    $params[] = $userId;
+    $types .= "i";
+
+    $stmt = $conn->prepare($query);
     if (!$stmt) {
         throw new Exception("Database error: " . $conn->error);
     }
 
-    $stmt->bind_param("i", $userId);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $user = $result->fetch_assoc();
+    $stmt->bind_param($types, ...$params);
 
-    if ($user) {
-        echo json_encode(['success' => true, 'user' => $user]);
+    if ($stmt->execute()) {
+        echo json_encode(['success' => true, 'message' => 'Profile updated successfully']);
     } else {
-        echo json_encode(['success' => false, 'message' => 'User not found']);
+        throw new Exception("Failed to update profile: " . $stmt->error);
     }
 
     $stmt->close();

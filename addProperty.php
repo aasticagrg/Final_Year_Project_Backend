@@ -2,7 +2,26 @@
 include 'helpers/connection.php';
 include 'helpers/auth_helper.php';
 
-if (!isset($_POST['token'])) {
+// Get token from various sources
+$headers = getallheaders();
+$token = null;
+
+// Check for token in Authorization header
+if (isset($headers['Authorization'])) {
+    // Extract the token from "Bearer <token>"
+    $authHeader = $headers['Authorization'];
+    if (strpos($authHeader, 'Bearer ') === 0) {
+        $token = substr($authHeader, 7);
+    }
+}
+
+// If not found in header, check POST data
+if (!$token && isset($_POST['token'])) {
+    $token = $_POST['token'];
+}
+
+// If still no token, return error
+if (!$token) {
     echo json_encode([
         'success' => false,
         'message' => 'Token is required',
@@ -10,7 +29,6 @@ if (!isset($_POST['token'])) {
     exit();
 }
 
-$token = $_POST['token'];
 $isVendor = isVendor($token);
 
 if (!$isVendor) {

@@ -1,11 +1,35 @@
 <?php
 include '../helpers/connection.php';
 
+// Define admin credentials in the backend
+$admin_email = 'admin@gmail.com';
+$admin_password = 'admin'; // Store securely, this is just an example
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['email']) && isset($_POST['role'])) {
+    if (isset($_POST['email']) && isset($_POST['password']) && isset($_POST['role'])) {
         $email = $_POST['email'];
         $password = $_POST['password'];
-        $role = $_POST['role']; // Expecting 'user' or 'vendor'
+        $role = $_POST['role']; // Expecting 'user', 'vendor', or 'admin'
+
+        // Admin login check
+        if ($email === $admin_email && $password === $admin_password && $role === 'admin') {
+            $token = bin2hex(random_bytes(32));
+
+            // Store admin token in the database
+            $sql = "INSERT INTO tokens (token, role) VALUES ('$token', 'admin')";
+            if (!mysqli_query($conn, $sql)) {
+                echo json_encode(['success' => false, 'message' => 'Failed to login: ' . mysqli_error($conn)]);
+                exit();
+            }
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Admin logged in successfully',
+                'token' => $token,
+                'role' => 'admin'
+            ]);
+            exit();
+        }
 
         if ($role === 'user') {
             $sql = "SELECT * FROM users WHERE email = '$email'";
@@ -42,7 +66,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit();
         }
 
-        // Remove sensitive data before sending the response
         unset($user['password']);
 
         if ($role === 'vendor') {
