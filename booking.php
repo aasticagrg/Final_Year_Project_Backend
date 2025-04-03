@@ -2,14 +2,11 @@
 include 'helpers/connection.php';
 include 'helpers/auth_helper.php';
 
-// Decode JSON from the request body
-$data = json_decode(file_get_contents("php://input"), true);
-
-// Debugging: log the received data
-error_log("Received JSON data: " . print_r($data, true));
-
 try {
-    // Check if the token exists in the request data
+    // Decode JSON from the request body
+    $data = json_decode(file_get_contents("php://input"), true);
+    
+    // Check if token exists in the request data
     if (!isset($data['token'])) {
         echo json_encode([
             'success' => false,
@@ -22,10 +19,7 @@ try {
     $token = $data['token'];
     $userData = getUserIdFromToken($token);
 
-    // Extract the user_id from the returned array
-    $userId = $userData['user_id'];
-
-    if (!$userId) {
+    if (!$userData || !isset($userData['user_id'])) {
         echo json_encode([
             'success' => false,
             'message' => 'Invalid token',
@@ -33,7 +27,7 @@ try {
         exit();
     }
 
-    // Validate all required fields in the request
+    // Extract and validate necessary fields from the request
     if (!isset($data['check_in_date'], $data['check_out_date'], $data['properties'], $data['arrival_time'], $data['full_guest_name'])) {
         echo json_encode([
             'success' => false,
@@ -42,24 +36,22 @@ try {
         exit();
     }
 
-    // Extract general booking details
+    // Extract booking data from request
     $checkInDate = $data['check_in_date'];
     $checkOutDate = $data['check_out_date'];
     $arrivalTime = $data['arrival_time'];
     $fullGuestName = $data['full_guest_name'];
-    
-    // Calculate total price (we will calculate this after inserting properties)
-    $totalPrice = 0;
+    $properties = $data['properties'];
 
-    // Start a transaction to ensure both tables are updated
+    // Start a database transaction
     mysqli_begin_transaction($conn);
 
-    // Insert booking into the bookings table
+    // Insert a new booking into the bookings table
     $sql = "INSERT INTO bookings (user_id, check_in_date, check_out_date, total_price, arrival_time, full_guest_name) 
             VALUES (?, ?, ?, ?, ?, ?)";
     
     $stmt = mysqli_prepare($conn, $sql);
-    mysqli_stmt_bind_param($stmt, "issdss", $userId, $checkInDate, $checkOutDate, $totalPrice, $arrivalTime, $fullGuestName);
+    mysqli_stmt_bind_param($stmt, "issdss", $userData['user_id'], $checkInDate, $checkOutDate, 0, $arrivalTime, $fullGuestName);
     $bookingResult = mysqli_stmt_execute($stmt);
 
     if (!$bookingResult) {
@@ -67,17 +59,18 @@ try {
     }
 
     $bookingId = mysqli_insert_id($conn);
+    $totalPrice = 0;
 
-    // Loop through the properties data (we assume it's an array of properties)
-    foreach ($data['properties'] as $property) {
+    // Loop through properties and insert them into the booking_properties table
+    foreach ($properties as $property) {
         if (!isset($property['property_id'], $property['days'])) {
             throw new Exception("Property details missing");
         }
 
         $propertyId = $property['property_id'];
-        $days = $property['days'];  // Previously 'nights', now 'days'
+        $days = $property['days'];
 
-        // Fetch the price per night from the properties table
+        // Fetch property details
         $sql = "SELECT price_per_night, vendor_id FROM properties WHERE id=?";
         $stmt = mysqli_prepare($conn, $sql);
         mysqli_stmt_bind_param($stmt, "i", $propertyId);
@@ -90,7 +83,7 @@ try {
 
         $propertyRow = mysqli_fetch_assoc($propertyResult);
         $pricePerNight = $propertyRow['price_per_night'];
-        $vendorId = $propertyRow['vendor_id'];  // Fetch the vendor_id associated with the property
+        $vendorId = $propertyRow['vendor_id'];
         $propertyTotalPrice = $pricePerNight * $days;
 
         // Insert property details into the booking_properties table
@@ -98,14 +91,14 @@ try {
                 VALUES (?, ?, ?, ?, ?)";
         
         $stmt = mysqli_prepare($conn, $sql);
-        mysqli_stmt_bind_param($stmt, "iiidi", $bookingId, $propertyId, $days, $propertyTotalPrice, $vendorId);  // bind 'days' and 'total_price'
+        mysqli_stmt_bind_param($stmt, "iiidi", $bookingId, $propertyId, $days, $propertyTotalPrice, $vendorId);
         $propertyResult = mysqli_stmt_execute($stmt);
 
         if (!$propertyResult) {
             throw new Exception("Failed to add property to booking: " . mysqli_error($conn));
         }
 
-        // Update the total booking price
+        // Update total price
         $totalPrice += $propertyTotalPrice;
     }
 
@@ -134,5 +127,4 @@ try {
         'message' => 'An error occurred: ' . $e->getMessage(),
     ]);
 }
-
 ?>
