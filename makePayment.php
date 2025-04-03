@@ -17,10 +17,10 @@ try {
     $userId = getUserIdFromToken($token);
     
     // Check for required fields in the POST request
-    if (isset($_POST['amount'], $_POST['booking_id'], $_POST['otherData'], $_POST['method'])) {
+    if (isset($_POST['amount'], $_POST['booking_id'], $_POST['details'], $_POST['method'])) {
         $amount = $_POST['amount'];
         $bookingId = $_POST['booking_id'];
-        $otherData = $_POST['otherData'];
+        $otherData = $_POST['details'];
         $method = $_POST['method'];  // 'online' or 'on_property'
         
         // Sanitize method input to prevent SQL injection
@@ -69,7 +69,7 @@ try {
     } else {
         echo json_encode([
             'success' => false,
-            'message' => 'amount, bookingId, otherData, and method are required',
+            'message' => 'amount, bookingId, details, and method are required',
         ]);
         exit();
     }

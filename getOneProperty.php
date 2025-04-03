@@ -1,5 +1,5 @@
 <?php
-include './helpers/connection.php';
+include 'helpers/connection.php';
 
 if (!isset($_GET['property_id'])) {
     echo json_encode([
@@ -13,9 +13,10 @@ $property_id = $_GET['property_id'];
 
 // Use prepared statements to prevent SQL injection
 $stmt = $conn->prepare("
-    SELECT properties.*, categories.*
+    SELECT properties.*, categories.*, vendors.vendor_name, vendors.contact_no
     FROM properties
     JOIN categories ON properties.category_id = categories.category_id
+    LEFT JOIN vendors ON properties.vendor_id = vendors.vendor_id
     WHERE property_id = ?
 ");
 $stmt->bind_param("i", $property_id);
