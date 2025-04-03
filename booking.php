@@ -1,6 +1,6 @@
 <?php
-include './helpers/connection.php';
-include './helpers/authHelper.php';
+include 'helpers/connection.php';
+include 'helpers/auth_helper.php';
 
 try {
     if (!isset($_POST['token'])) {
