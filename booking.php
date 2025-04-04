@@ -46,13 +46,15 @@ try {
     // Start a database transaction
     mysqli_begin_transaction($conn);
 
-    // Insert a new booking into the bookings table
+        // Insert a new booking into the bookings table
     $sql = "INSERT INTO bookings (user_id, check_in_date, check_out_date, total_price, arrival_time, full_guest_name) 
-            VALUES (?, ?, ?, ?, ?, ?)";
-    
+    VALUES (?, ?, ?, ?, ?, ?)";
+
+    $total = 0; // Fix: define as a variable so it can be passed by reference
     $stmt = mysqli_prepare($conn, $sql);
-    mysqli_stmt_bind_param($stmt, "issdss", $userData['user_id'], $checkInDate, $checkOutDate, 0, $arrivalTime, $fullGuestName);
+    mysqli_stmt_bind_param($stmt, "issdss", $userData['user_id'], $checkInDate, $checkOutDate, $total, $arrivalTime, $fullGuestName);
     $bookingResult = mysqli_stmt_execute($stmt);
+
 
     if (!$bookingResult) {
         throw new Exception("Failed to create booking: " . mysqli_error($conn));
@@ -71,7 +73,7 @@ try {
         $days = $property['days'];
 
         // Fetch property details
-        $sql = "SELECT price_per_night, vendor_id FROM properties WHERE id=?";
+        $sql = "SELECT price_per_night, vendor_id FROM properties WHERE property_id=?";
         $stmt = mysqli_prepare($conn, $sql);
         mysqli_stmt_bind_param($stmt, "i", $propertyId);
         mysqli_stmt_execute($stmt);
