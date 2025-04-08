@@ -6,12 +6,11 @@ $checkInDate = isset($_GET['checkInDate']) ? $_GET['checkInDate'] : '';
 $checkOutDate = isset($_GET['checkOutDate']) ? $_GET['checkOutDate'] : '';
 $priceRange = isset($_GET['priceRange']) ? $_GET['priceRange'] : '';
 
-// Construct the SQL query without using any sanitization (unsafe approach, but as per request)
 $sql = "SELECT * FROM properties WHERE 1=1";
 
-// Replace 'destination' with 'city' since the database column is 'city'
+
 if ($destination) {
-    $sql .= " AND city LIKE '%$destination%'";  // Now using 'city' instead of 'destination'
+    $sql .= " AND city LIKE '%$destination%'";  
 }
 
 if ($priceRange) {

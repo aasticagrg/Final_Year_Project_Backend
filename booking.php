@@ -5,7 +5,7 @@ include 'helpers/auth_helper.php';
 try {
     // Decode JSON from the request body
     $data = json_decode(file_get_contents("php://input"), true);
-    
+
     // Check if token exists in the request data
     if (!isset($data['token'])) {
         echo json_encode([
@@ -46,15 +46,14 @@ try {
     // Start a database transaction
     mysqli_begin_transaction($conn);
 
-        // Insert a new booking into the bookings table
+    // Insert a new booking into the bookings table
     $sql = "INSERT INTO bookings (user_id, check_in_date, check_out_date, total_price, arrival_time, full_guest_name) 
-    VALUES (?, ?, ?, ?, ?, ?)";
+            VALUES (?, ?, ?, ?, ?, ?)";
 
-    $total = 0; // Fix: define as a variable so it can be passed by reference
+    $total = 0;
     $stmt = mysqli_prepare($conn, $sql);
     mysqli_stmt_bind_param($stmt, "issdss", $userData['user_id'], $checkInDate, $checkOutDate, $total, $arrivalTime, $fullGuestName);
     $bookingResult = mysqli_stmt_execute($stmt);
-
 
     if (!$bookingResult) {
         throw new Exception("Failed to create booking: " . mysqli_error($conn));
@@ -88,10 +87,9 @@ try {
         $vendorId = $propertyRow['vendor_id'];
         $propertyTotalPrice = $pricePerNight * $days;
 
-        // Insert property details into the booking_properties table
+        // Insert property into booking_properties table
         $sql = "INSERT INTO booking_properties (booking_id, property_id, days, total_price, vendor_id) 
                 VALUES (?, ?, ?, ?, ?)";
-        
         $stmt = mysqli_prepare($conn, $sql);
         mysqli_stmt_bind_param($stmt, "iiidi", $bookingId, $propertyId, $days, $propertyTotalPrice, $vendorId);
         $propertyResult = mysqli_stmt_execute($stmt);
@@ -100,11 +98,11 @@ try {
             throw new Exception("Failed to add property to booking: " . mysqli_error($conn));
         }
 
-        // Update total price
+        // Add to total
         $totalPrice += $propertyTotalPrice;
     }
 
-    // Update the total price in the bookings table
+    // Update total price in bookings table
     $sql = "UPDATE bookings SET total_price = ? WHERE booking_id = ?";
     $stmt = mysqli_prepare($conn, $sql);
     mysqli_stmt_bind_param($stmt, "di", $totalPrice, $bookingId);
@@ -113,7 +111,6 @@ try {
     // Commit the transaction
     mysqli_commit($conn);
 
-    // Return success response
     echo json_encode([
         'success' => true,
         'message' => 'Booking created successfully',
@@ -121,7 +118,6 @@ try {
     ]);
 
 } catch (Exception $e) {
-    // Rollback the transaction if there was an error
     mysqli_rollback($conn);
 
     echo json_encode([
