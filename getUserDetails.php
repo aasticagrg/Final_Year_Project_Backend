@@ -38,22 +38,23 @@ $userId = $userData['user_id'];
 try {
     $query = "SELECT name, email, phone_no, user_address, user_verification FROM users WHERE user_id = ?";
     $stmt = $conn->prepare($query);
-
+    
     if (!$stmt) {
         throw new Exception("Database error: " . $conn->error);
     }
-
+    
     $stmt->bind_param("i", $userId);
     $stmt->execute();
     $result = $stmt->get_result();
     $user = $result->fetch_assoc();
-
+    
     if ($user) {
+        // Return user data including file path for verification document
         echo json_encode(['success' => true, 'user' => $user]);
     } else {
         echo json_encode(['success' => false, 'message' => 'User not found']);
     }
-
+    
     $stmt->close();
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
