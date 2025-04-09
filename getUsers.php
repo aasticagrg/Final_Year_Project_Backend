@@ -57,7 +57,7 @@ try {
     $searchQuery = isset($_GET['search']) ? $_GET['search'] : '';
     
     // Prepare the SQL query to fetch users, applying the search filter
-    $query = "SELECT user_id, name, email, user_address, phone_no, role, user_verification 
+    $query = "SELECT user_id, name, email, user_address, phone_no, role, user_verification, account_status, verification_status 
               FROM users WHERE role != 'admin' AND (name LIKE ? OR email LIKE ? OR phone_no LIKE ?)";
     
     $stmt = $conn->prepare($query);
