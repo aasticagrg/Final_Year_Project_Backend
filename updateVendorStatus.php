@@ -14,12 +14,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 $data = json_decode(file_get_contents("php://input"), true);
 
-if (!isset($data['user_id']) || !isset($data['verification_status'])) {
+// Check required parameters
+if (!isset($data['vendor_id']) || !isset($data['account_status'])) {
     echo json_encode(['success' => false, 'message' => 'Missing parameters']);
     exit();
 }
 
-// Extract token
+// Validate account status enum
+$allowedStatuses = ['active', 'deactivated'];
+$status = $data['account_status'];
+
+if (!in_array($status, $allowedStatuses)) {
+    echo json_encode(['success' => false, 'message' => 'Invalid account status']);
+    exit();
+}
+
+// Extract and verify the token
 $headers = getallheaders();
 $authHeader = $headers['Authorization'] ?? '';
 $token = '';
@@ -38,8 +48,8 @@ if (!$userData['user_id']) {
 $checkAdmin = $conn->prepare("SELECT role FROM users WHERE user_id = ?");
 $checkAdmin->bind_param("i", $userData['user_id']);
 $checkAdmin->execute();
-$result = $checkAdmin->get_result();
-$adminRow = $result->fetch_assoc();
+$adminResult = $checkAdmin->get_result();
+$adminRow = $adminResult->fetch_assoc();
 $checkAdmin->close();
 
 if (!$adminRow || $adminRow['role'] !== 'admin') {
@@ -47,28 +57,18 @@ if (!$adminRow || $adminRow['role'] !== 'admin') {
     exit();
 }
 
-// Allow only valid enum values
-$allowedStatuses = ['verified', 'not verified'];
-$status = $data['verification_status'];
-
-if (!in_array($status, $allowedStatuses)) {
-    echo json_encode(['success' => false, 'message' => 'Invalid verification status']);
-    exit();
-}
-
-// Update verification status
-$update = $conn->prepare("UPDATE users SET verification_status = ? WHERE user_id = ?");
-$update->bind_param("si", $status, $data['user_id']);
+// Update vendor account status
+$update = $conn->prepare("UPDATE vendors SET account_status = ? WHERE vendor_id = ?");
+$update->bind_param("si", $status, $data['vendor_id']);
 
 if ($update->execute()) {
-    // Set dynamic success message based on account status
-    if ($status === 'not verified') {
-        echo json_encode(['success' => true, 'message' => "User's verfication has not been verified"]);
+    if ($status === 'deactivated') {
+        echo json_encode(['success' => true, 'message' => "Vendor's account is deactivated"]);
     } else {
-        echo json_encode(['success' => true, 'message' => "User has been verified"]);
+        echo json_encode(['success' => true, 'message' => "Vendor's account is activated"]);
     }
 } else {
-    echo json_encode(['success' => false, 'message' => 'Failed to update verification status']);
+    echo json_encode(['success' => false, 'message' => 'Failed to update vendor account status']);
 }
 
 $update->close();

@@ -14,12 +14,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 $data = json_decode(file_get_contents("php://input"), true);
 
-if (!isset($data['user_id']) || !isset($data['verification_status'])) {
+// Check required parameters
+if (!isset($data['vendor_id']) || !isset($data['verification_status'])) {
     echo json_encode(['success' => false, 'message' => 'Missing parameters']);
     exit();
 }
 
-// Extract token
+// Extract and verify token
 $headers = getallheaders();
 $authHeader = $headers['Authorization'] ?? '';
 $token = '';
@@ -34,7 +35,7 @@ if (!$userData['user_id']) {
     exit();
 }
 
-// Check if user is admin
+// Verify admin role
 $checkAdmin = $conn->prepare("SELECT role FROM users WHERE user_id = ?");
 $checkAdmin->bind_param("i", $userData['user_id']);
 $checkAdmin->execute();
@@ -47,7 +48,7 @@ if (!$adminRow || $adminRow['role'] !== 'admin') {
     exit();
 }
 
-// Allow only valid enum values
+// Validate verification status
 $allowedStatuses = ['verified', 'not verified'];
 $status = $data['verification_status'];
 
@@ -56,19 +57,18 @@ if (!in_array($status, $allowedStatuses)) {
     exit();
 }
 
-// Update verification status
-$update = $conn->prepare("UPDATE users SET verification_status = ? WHERE user_id = ?");
-$update->bind_param("si", $status, $data['user_id']);
+// Update vendor verification status
+$update = $conn->prepare("UPDATE vendors SET verification_status = ? WHERE vendor_id = ?");
+$update->bind_param("si", $status, $data['vendor_id']);
 
 if ($update->execute()) {
-    // Set dynamic success message based on account status
     if ($status === 'not verified') {
-        echo json_encode(['success' => true, 'message' => "User's verfication has not been verified"]);
+        echo json_encode(['success' => true, 'message' => "Vendor's verification has been rejected"]);
     } else {
-        echo json_encode(['success' => true, 'message' => "User has been verified"]);
+        echo json_encode(['success' => true, 'message' => "Vendor has been verified"]);
     }
 } else {
-    echo json_encode(['success' => false, 'message' => 'Failed to update verification status']);
+    echo json_encode(['success' => false, 'message' => 'Failed to update vendor verification status']);
 }
 
 $update->close();

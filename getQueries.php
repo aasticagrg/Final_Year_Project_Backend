@@ -56,9 +56,10 @@ try {
     // Get the search query from the request
     $searchQuery = isset($_GET['search']) ? $_GET['search'] : '';
     
-    // Prepare the SQL query to fetch vendors, applying the search filter
-    $query = "SELECT vendor_id, vendor_name, vendor_email, vendor_address, contact_no, role, vendor_verification, account_status, verification_status 
-FROM vendors WHERE (vendor_name LIKE ? OR vendor_email LIKE ? OR contact_no LIKE ?)";
+    // Prepare the SQL query to fetch contacts
+    $query = "SELECT contact_id, full_name, email, phone, message
+              FROM contacts 
+              WHERE full_name LIKE ? OR email LIKE ? OR phone LIKE ?";
     
     $stmt = $conn->prepare($query);
     
@@ -66,23 +67,17 @@ FROM vendors WHERE (vendor_name LIKE ? OR vendor_email LIKE ? OR contact_no LIKE
         throw new Exception("Database error: " . $conn->error);
     }
     
-    // Bind the search term with wildcards for partial matching
-    $searchTerm = "%" . $searchQuery . "%"; // Adding wildcards for LIKE query
-    
-    // Bind the search parameter
+    $searchTerm = "%" . $searchQuery . "%";
     $stmt->bind_param("sss", $searchTerm, $searchTerm, $searchTerm);
-    
     $stmt->execute();
     $result = $stmt->get_result();
-    $vendors = [];
     
+    $contacts = [];
     while ($row = $result->fetch_assoc()) {
-        $vendors[] = $row;
+        $contacts[] = $row;
     }
     
-    // Return the results in JSON format
-    echo json_encode(['success' => true, 'vendors' => $vendors]);
-    
+    echo json_encode(['success' => true, 'contacts' => $contacts]);
     $stmt->close();
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
