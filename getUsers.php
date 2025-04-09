@@ -53,13 +53,24 @@ try {
         exit();
     }
     
-    // Fetch all users except those with the role admin
-    $query = "SELECT user_id, name, email, user_address, phone_no, role, user_verification FROM users WHERE role != 'admin'";
+    // Get the search query from the request
+    $searchQuery = isset($_GET['search']) ? $_GET['search'] : '';
+    
+    // Prepare the SQL query to fetch users, applying the search filter
+    $query = "SELECT user_id, name, email, user_address, phone_no, role, user_verification 
+              FROM users WHERE role != 'admin' AND (name LIKE ? OR email LIKE ? OR phone_no LIKE ?)";
+    
     $stmt = $conn->prepare($query);
     
     if (!$stmt) {
         throw new Exception("Database error: " . $conn->error);
     }
+    
+    // Bind the search term with wildcards for partial matching
+    $searchTerm = "%" . $searchQuery . "%"; // Adding wildcards for LIKE query
+    
+    // Bind the search parameter
+    $stmt->bind_param("sss", $searchTerm, $searchTerm, $searchTerm);
     
     $stmt->execute();
     $result = $stmt->get_result();
@@ -69,6 +80,7 @@ try {
         $users[] = $row;
     }
     
+    // Return the results in JSON format
     echo json_encode(['success' => true, 'users' => $users]);
     
     $stmt->close();
