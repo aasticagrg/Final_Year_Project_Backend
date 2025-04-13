@@ -110,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Vendor login logic 
     else if ($role === 'vendor') {
-        $sql = "SELECT vendor_id, password, status FROM vendors WHERE vendor_email = ?";
+        $sql = "SELECT vendor_id, password, account_status FROM vendors WHERE vendor_email = ?";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("s", $email);
         $stmt->execute();
