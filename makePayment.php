@@ -55,7 +55,8 @@ try {
 
         // Set the payment status and booking status based on the method
         $paymentStatus = ($method === 'online') ? 'completed' : 'pending';
-        $bookingStatus = ($method === 'online') ? 'paid' : 'pending';
+        $bookingStatus = 'booked';
+
 
         // Prepare the SQL query to insert payment details
         $sql = "INSERT INTO payments (user_id, amount, booking_id, details, method, payment_status, payment_date, transaction_id) 
