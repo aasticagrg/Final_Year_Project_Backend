@@ -13,7 +13,7 @@ function getUserIdFromToken($token) {
     }
     
     try {
-        // Use prepared statements to prevent SQL injection
+        // Query the tokens table to get user or vendor details
         $sql = "SELECT user_id, vendor_id, role FROM tokens WHERE token = ?";
         $stmt = $conn->prepare($sql);
         
@@ -35,11 +35,31 @@ function getUserIdFromToken($token) {
             ];
         }
         
+        // If user_id is present in the token, check in the users table
+        if ($row['user_id']) {
+            return [
+                'user_id' => $row['user_id'],
+                'vendor_id' => null,
+                'role' => $row['role']
+            ];
+        }
+        
+        // If vendor_id is present, check in the vendors table
+        if ($row['vendor_id']) {
+            return [
+                'user_id' => null,
+                'vendor_id' => $row['vendor_id'],
+                'role' => $row['role']
+            ];
+        }
+        
+        // Return nulls if no user or vendor found
         return [
-            'user_id' => $row['user_id'] ?? null,
-            'vendor_id' => $row['vendor_id'] ?? null,
-            'role' => $row['role'] ?? null,
+            'user_id' => null,
+            'vendor_id' => null,
+            'role' => null
         ];
+        
     } catch (Exception $e) {
         error_log("Token validation error: " . $e->getMessage());
         return [
@@ -49,6 +69,7 @@ function getUserIdFromToken($token) {
         ];
     }
 }
+
 
 function isAdmin($token) {
     global $conn;

@@ -11,57 +11,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'];
     $role = $_POST['role'];
 
-    // Admin login logic
-    if ($role === 'admin') {
-        $sql = "SELECT user_id, password FROM users WHERE email = ? AND role = 'admin'";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("s", $email);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $admin = $result->fetch_assoc();
-        $stmt->close();
-
-        if (!$admin) {
-            echo json_encode(['success' => false, 'message' => 'Admin account not found']);
-            exit();
-        }
-
+    // User or Admin login logic (both use "user" tab in frontend)
+    if ($role === 'user') {
+        // Check if admin credentials are used
         if ($email === 'admin@gmail.com' && $password === 'admin') {
-            $login_success = true;
-        } else {
-            $login_success = password_verify($password, $admin['password']);
-        }
+            $sql = "SELECT user_id FROM users WHERE email = ? AND role = 'admin'";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("s", $email);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $admin = $result->fetch_assoc();
+            $stmt->close();
 
-        if (!$login_success) {
-            echo json_encode(['success' => false, 'message' => 'Incorrect password']);
+            if (!$admin) {
+                echo json_encode(['success' => false, 'message' => 'Admin account not found']);
+                exit();
+            }
+
+            $token = bin2hex(random_bytes(32));
+            $admin_id = $admin['user_id'];
+
+            $insertTokenQuery = "INSERT INTO tokens (token, user_id, vendor_id, role) 
+                                VALUES (?, ?, NULL, 'admin')
+                                ON DUPLICATE KEY UPDATE token = VALUES(token), role = VALUES(role)";
+            $stmt = $conn->prepare($insertTokenQuery);
+            $stmt->bind_param("si", $token, $admin_id);
+            if (!$stmt->execute()) {
+                echo json_encode(['success' => false, 'message' => 'Failed to login: ' . $stmt->error]);
+                exit();
+            }
+            $stmt->close();
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Admin logged in successfully',
+                'token' => $token,
+                'role' => 'admin'
+            ]);
             exit();
         }
 
-        $token = bin2hex(random_bytes(32));
-        $admin_id = $admin['user_id'];
-
-        $insertTokenQuery = "INSERT INTO tokens (token, user_id, vendor_id, role) 
-                             VALUES (?, ?, NULL, 'admin')
-                             ON DUPLICATE KEY UPDATE token = VALUES(token), role = VALUES(role)";
-        $stmt = $conn->prepare($insertTokenQuery);
-        $stmt->bind_param("si", $token, $admin_id);
-        if (!$stmt->execute()) {
-            echo json_encode(['success' => false, 'message' => 'Failed to login: ' . $stmt->error]);
-            exit();
-        }
-        $stmt->close();
-
-        echo json_encode([
-            'success' => true,
-            'message' => 'Admin logged in successfully',
-            'token' => $token,
-            'role' => 'admin'
-        ]);
-        exit();
-    }
-
-    // User login logic
-    else if ($role === 'user') {
+        // Normal user login
         $sql = "SELECT user_id, password, account_status FROM users WHERE email = ? AND role = 'user'";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("s", $email);
@@ -108,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     }
 
-    // Vendor login logic 
+    // Vendor login logic
     else if ($role === 'vendor') {
         $sql = "SELECT vendor_id, password, account_status FROM vendors WHERE vendor_email = ?";
         $stmt = $conn->prepare($sql);
