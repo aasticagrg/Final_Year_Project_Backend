@@ -31,6 +31,19 @@ $property_id = $data->property_id;
 $rating = $data->rating;
 $review_text = $data->review_text;
 
+// Check if the user has a 'booked' status for the property
+$stmt = $conn->prepare("SELECT * FROM bookings WHERE user_id = ? AND property_id = ? AND booking_status = 'booked'");
+$stmt->bind_param("ii", $user_id, $property_id);
+$stmt->execute();
+$result = $stmt->get_result();
+
+if ($result->num_rows == 0) {
+    echo json_encode(["success" => false, "message" => "You must book this property before reviewing"]);
+    exit;
+}
+
+$stmt->close();
+
 // Get vendor_id from the property
 $stmt = $conn->prepare("SELECT vendor_id FROM properties WHERE property_id = ?");
 $stmt->bind_param("i", $property_id);
