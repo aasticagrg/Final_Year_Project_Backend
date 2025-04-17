@@ -32,7 +32,13 @@ $rating = $data->rating;
 $review_text = $data->review_text;
 
 // Check if the user has a 'booked' status for the property
-$stmt = $conn->prepare("SELECT * FROM bookings WHERE user_id = ? AND property_id = ? AND booking_status = 'booked'");
+$stmt = $conn->prepare("
+    SELECT * 
+    FROM bookings b
+    JOIN booking_properties bp ON b.booking_id = bp.booking_id
+    WHERE b.user_id = ? AND bp.property_id = ? AND b.booking_status = 'booked'
+");
+
 $stmt->bind_param("ii", $user_id, $property_id);
 $stmt->execute();
 $result = $stmt->get_result();
