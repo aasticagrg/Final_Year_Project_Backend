@@ -35,9 +35,11 @@ $vendor_id = $userData['vendor_id'];
 // Optional Date Filter
 $startDate = isset($_GET['start_date']) ? $_GET['start_date'] : null;
 $endDate = isset($_GET['end_date']) ? $_GET['end_date'] : null;
+$propertyName = isset($_GET['property_name']) ? $_GET['property_name'] : null;
 
 // Condition and Binding
 $dateFilter = "";
+$propertyFilter = "";
 $params = [$vendor_id];
 $types = "i";
 
@@ -46,6 +48,12 @@ if ($startDate && $endDate) {
     $params[] = $startDate;
     $params[] = $endDate;
     $types .= "ss";
+}
+
+if ($propertyName) {
+    $propertyFilter = " AND p.property_name = ?";
+    $params[] = $propertyName;
+    $types .= "s";
 }
 
 // 1. Summary Query
@@ -58,12 +66,9 @@ $summarySql = "
     FROM bookings b
     JOIN booking_properties bp ON b.booking_id = bp.booking_id
     LEFT JOIN payments pm ON b.booking_id = pm.booking_id
-    WHERE bp.vendor_id = ? $dateFilter
+    JOIN properties p ON bp.property_id = p.property_id
+    WHERE bp.vendor_id = ? $dateFilter $propertyFilter
 ";
-
-
-
-
 $summaryStmt = $conn->prepare($summarySql);
 $summaryStmt->bind_param($types, ...$params);
 $summaryStmt->execute();
@@ -87,13 +92,9 @@ $tableSql = "
     JOIN properties p ON bp.property_id = p.property_id
     JOIN users u ON b.user_id = u.user_id
     LEFT JOIN payments pm ON b.booking_id = pm.booking_id
-    WHERE bp.vendor_id = ? $dateFilter
+    WHERE bp.vendor_id = ? $dateFilter $propertyFilter
     ORDER BY b.created_at DESC
 ";
-
-
-
-
 $tableStmt = $conn->prepare($tableSql);
 $tableStmt->bind_param($types, ...$params);
 $tableStmt->execute();
@@ -104,7 +105,23 @@ while ($row = $tableResult->fetch_assoc()) {
 }
 $tableStmt->close();
 
-// 3. Chart Data
+// 3. Property List for Dropdown
+$propertiesSql = "
+    SELECT p.property_name
+    FROM properties p
+    WHERE p.vendor_id = ?
+";
+$propertiesStmt = $conn->prepare($propertiesSql);
+$propertiesStmt->bind_param("i", $vendor_id);
+$propertiesStmt->execute();
+$propertiesResult = $propertiesStmt->get_result();
+$properties = [];
+while ($row = $propertiesResult->fetch_assoc()) {
+    $properties[] = $row['property_name'];
+}
+$propertiesStmt->close();
+
+// 4. Chart Data
 $chartSql = "
     SELECT 
         DATE_FORMAT(b.created_at, '%Y-%m') AS month,
@@ -112,14 +129,11 @@ $chartSql = "
     FROM bookings b
     JOIN booking_properties bp ON b.booking_id = bp.booking_id
     LEFT JOIN payments pm ON b.booking_id = pm.booking_id
-    WHERE bp.vendor_id = ? $dateFilter
+    JOIN properties p ON bp.property_id = p.property_id
+    WHERE bp.vendor_id = ? $dateFilter $propertyFilter
     GROUP BY month
     ORDER BY month
 ";
-
-
-
-
 $chartStmt = $conn->prepare($chartSql);
 $chartStmt->bind_param($types, ...$params);
 $chartStmt->execute();
@@ -135,6 +149,8 @@ echo json_encode([
     'success' => true,
     'summary' => $summaryResult,
     'revenue_data' => $revenueData,
-    'chart_data' => $chartData
+    'chart_data' => $chartData,
+    'properties' => $properties // Include the list of properties
 ]);
+
 ?>
