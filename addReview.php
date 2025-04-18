@@ -11,9 +11,8 @@ $token = str_replace('Bearer ', '', $authHeader);
 
 // Validate token
 $userData = getUserIdFromToken($token);
-$user_id = $userData['user_id'];
+$user_id = $userData['user_id'] ?? null;
 
-// Only users (not vendors or unauthenticated) can submit reviews
 if (!$user_id) {
     echo json_encode(["success" => false, "message" => "Unauthorized"]);
     exit;
@@ -47,7 +46,6 @@ if ($result->num_rows == 0) {
     echo json_encode(["success" => false, "message" => "You must book this property before reviewing"]);
     exit;
 }
-
 $stmt->close();
 
 // Get vendor_id from the property
@@ -65,7 +63,20 @@ if (!$row) {
 
 $vendor_id = $row['vendor_id'];
 
-// Save the review
+// Check if the user already has a review for this property
+$stmt = $conn->prepare("SELECT review_id FROM reviews WHERE user_id = ? AND property_id = ?");
+$stmt->bind_param("ii", $user_id, $property_id);
+$stmt->execute();
+$result = $stmt->get_result();
+
+// If user has already reviewed, throw an error
+if ($result->num_rows > 0) {
+    echo json_encode(["success" => false, "message" => "You have already reviewed this property"]);
+    exit;
+}
+
+// Insert new review since no previous review exists
+$stmt->close();
 $stmt = $conn->prepare("INSERT INTO reviews (user_id, property_id, vendor_id, rating, review_text) VALUES (?, ?, ?, ?, ?)");
 $stmt->bind_param("iiiis", $user_id, $property_id, $vendor_id, $rating, $review_text);
 

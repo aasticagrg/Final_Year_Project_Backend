@@ -6,9 +6,11 @@ header("Content-Type: application/json");
 
 $headers = getallheaders();
 $token = str_replace('Bearer ', '', $headers['Authorization'] ?? '');
+
+// Get user or vendor info from token
 $userData = getUserIdFromToken($token);
-$vendor_id = $userData['vendor_id'] ?? null;
 $user_id = $userData['user_id'] ?? null;
+$vendor_id = $userData['vendor_id'] ?? null;
 
 $data = json_decode(file_get_contents("php://input"));
 $review_id = $data->review_id ?? null;
@@ -18,8 +20,8 @@ if (!$review_id || !is_numeric($review_id)) {
     exit;
 }
 
-// Step 1: Get the property_id from the review
-$reviewQuery = $conn->prepare("SELECT property_id FROM reviews WHERE review_id = ?");
+// Step 1: Fetch review info including property_id and user_id
+$reviewQuery = $conn->prepare("SELECT user_id, property_id FROM reviews WHERE review_id = ?");
 $reviewQuery->bind_param("i", $review_id);
 $reviewQuery->execute();
 $reviewResult = $reviewQuery->get_result();
@@ -29,20 +31,29 @@ if ($reviewResult->num_rows === 0) {
     exit;
 }
 
-$property_id = $reviewResult->fetch_assoc()['property_id'];
+$review = $reviewResult->fetch_assoc();
+$reviewUserId = $review['user_id'];
+$propertyId = $review['property_id'];
 
-// Step 2: Check if the vendor owns the property
-$ownershipCheck = $conn->prepare("SELECT * FROM properties WHERE property_id = ? AND vendor_id = ?");
-$ownershipCheck->bind_param("ii", $property_id, $vendor_id);
-$ownershipCheck->execute();
-$ownerResult = $ownershipCheck->get_result();
+// Step 2: Check if the logged-in user is the reviewer or the vendor who owns the property
+$isReviewer = $user_id && $user_id == $reviewUserId;
+$isVendorOwner = false;
 
-if ($ownerResult->num_rows === 0) {
-    echo json_encode(["success" => false, "message" => "You do not own this property or are not authorized to delete this review"]);
+if ($vendor_id) {
+    $ownerCheck = $conn->prepare("SELECT property_id FROM properties WHERE property_id = ? AND vendor_id = ?");
+    $ownerCheck->bind_param("ii", $propertyId, $vendor_id);
+    $ownerCheck->execute();
+    $ownerResult = $ownerCheck->get_result();
+    $isVendorOwner = $ownerResult->num_rows > 0;
+}
+
+// Step 3: Authorization check
+if (!$isReviewer && !$isVendorOwner) {
+    echo json_encode(["success" => false, "message" => "You are not authorized to delete this review"]);
     exit;
 }
 
-// Step 3: Delete the review
+// Step 4: Delete the review
 $deleteStmt = $conn->prepare("DELETE FROM reviews WHERE review_id = ?");
 $deleteStmt->bind_param("i", $review_id);
 $deleteStmt->execute();

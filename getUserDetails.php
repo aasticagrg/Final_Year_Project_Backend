@@ -36,7 +36,7 @@ if (!$userData['user_id']) {
 $userId = $userData['user_id'];
 
 try {
-    $query = "SELECT name, email, phone_no, user_address, user_verification FROM users WHERE user_id = ?";
+    $query = "SELECT user_id, name, email, phone_no, user_address, user_verification FROM users WHERE user_id = ?";
     $stmt = $conn->prepare($query);
     
     if (!$stmt) {
