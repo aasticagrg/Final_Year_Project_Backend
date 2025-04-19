@@ -1,42 +1,55 @@
 <?php
 include 'helpers/connection.php';
 
-$destination = isset($_GET['destination']) ? $_GET['destination'] : '';
-$checkInDate = isset($_GET['checkInDate']) ? $_GET['checkInDate'] : '';
-$checkOutDate = isset($_GET['checkOutDate']) ? $_GET['checkOutDate'] : '';
-$priceRange = isset($_GET['priceRange']) ? $_GET['priceRange'] : '';
+// 🔹 Sanitize input
+$city = isset($_GET['city']) ? mysqli_real_escape_string($conn, $_GET['city']) : null;
+$checkIn = isset($_GET['check_in_date']) ? $_GET['check_in_date'] : null;
+$checkOut = isset($_GET['check_out_date']) ? $_GET['check_out_date'] : null;
+$price = isset($_GET['price']) ? intval($_GET['price']) : null;
 
-$sql = "SELECT * FROM properties WHERE 1=1";
+// 🔹 Base query
+$sql = "SELECT properties.*, categories.category_name, 
+        AVG(reviews.rating) AS average_rating
+        FROM properties
+        JOIN categories ON properties.category_id = categories.category_id 
+        LEFT JOIN reviews ON properties.property_id = reviews.property_id
+        WHERE 1=1";
 
-
-if ($destination) {
-    $sql .= " AND city LIKE '%$destination%'";  
+// 🔹 Apply filters
+if ($city) {
+    $sql .= " AND properties.city = '$city'";
 }
 
-if ($priceRange) {
-    $sql .= " AND price_per_night <= $priceRange";  // Assuming price_per_night is the correct column for price
+if ($price !== null) {
+    $sql .= " AND properties.price_per_night <= $price";
 }
 
-if ($checkInDate) {
-    $sql .= " AND available_date >= '$checkInDate'";  // Assuming available_date is a valid date field
+// 🔹 Date availability: exclude properties already booked during selected range
+if ($checkIn && $checkOut) {
+    $sql .= " AND properties.property_id NOT IN (
+        SELECT property_id FROM bookings
+        WHERE ('$checkIn' < check_out_date AND '$checkOut' > check_in_date)
+    )";
 }
 
-if ($checkOutDate) {
-    $sql .= " AND available_date <= '$checkOutDate'";  // Assuming available_date is a valid date field
+// 🔹 Group results for proper AVG aggregation
+$sql .= " GROUP BY properties.property_id";
+
+// 🔹 Execute query
+$result = mysqli_query($conn, $sql);
+
+if (!$result) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'Query failed: ' . mysqli_error($conn)
+    ]);
+    exit();
 }
 
-$result = $conn->query($sql);
-
-$properties = [];
-if ($result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
-        $properties[] = $row; // Fetch properties and add to array
-    }
-}
-
-// Return the result as JSON
-header('Content-Type: application/json');
-echo json_encode($properties);
-
-$conn->close();
+// 🔹 Return results
+$properties = mysqli_fetch_all($result, MYSQLI_ASSOC);
+echo json_encode([
+    'success' => true,
+    'properties' => $properties
+]);
 ?>
