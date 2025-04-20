@@ -48,7 +48,7 @@ if (!$adminRow || $adminRow['role'] !== 'admin') {
 }
 
 // Allow only valid enum values
-$allowedStatuses = ['verified', 'not verified'];
+$allowedStatuses = ['verified', 'not verified', 'rejected'];
 $status = $data['verification_status'];
 
 if (!in_array($status, $allowedStatuses)) {
@@ -61,12 +61,13 @@ $update = $conn->prepare("UPDATE users SET verification_status = ? WHERE user_id
 $update->bind_param("si", $status, $data['user_id']);
 
 if ($update->execute()) {
-    // Set dynamic success message based on account status
-    if ($status === 'not verified') {
-        echo json_encode(['success' => true, 'message' => "User's verfication has not been verified"]);
-    } else {
-        echo json_encode(['success' => true, 'message' => "User has been verified"]);
-    }
+    $message = match ($status) {
+        'verified' => "User has been verified",
+        'not verified' => "User's verification has been reset to not verified",
+        'rejected' => "User's verification has been rejected",
+        default => "Verification status updated"
+    };
+    echo json_encode(['success' => true, 'message' => $message]);
 } else {
     echo json_encode(['success' => false, 'message' => 'Failed to update verification status']);
 }

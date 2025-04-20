@@ -90,7 +90,7 @@ try {
     $types = "sss";
 
     if ($vendor_verification) {
-        $query .= ", vendor_verification = ?";
+        $query .= ", vendor_verification = ?, verification_status = 'not verified'";
         $params[] = $vendor_verification;
         $types .= "s";
     }

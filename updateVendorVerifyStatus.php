@@ -49,7 +49,7 @@ if (!$adminRow || $adminRow['role'] !== 'admin') {
 }
 
 // Validate verification status
-$allowedStatuses = ['verified', 'not verified'];
+$allowedStatuses = ['verified', 'not verified', 'rejected'];
 $status = $data['verification_status'];
 
 if (!in_array($status, $allowedStatuses)) {
@@ -62,11 +62,13 @@ $update = $conn->prepare("UPDATE vendors SET verification_status = ? WHERE vendo
 $update->bind_param("si", $status, $data['vendor_id']);
 
 if ($update->execute()) {
-    if ($status === 'not verified') {
-        echo json_encode(['success' => true, 'message' => "Vendor's verification has been rejected"]);
-    } else {
-        echo json_encode(['success' => true, 'message' => "Vendor has been verified"]);
-    }
+    $message = match ($status) {
+        'verified' => "Vendor has been verified",
+        'rejected' => "Vendor's verification has been rejected",
+        'not verified' => "Vendor verification has been reset to not verified",
+        default => "Status updated"
+    };
+    echo json_encode(['success' => true, 'message' => $message]);
 } else {
     echo json_encode(['success' => false, 'message' => 'Failed to update vendor verification status']);
 }
