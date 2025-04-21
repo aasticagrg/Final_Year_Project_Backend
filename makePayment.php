@@ -2,6 +2,8 @@
 // Include database connection and authentication helper
 include 'helpers/connection.php';
 include 'helpers/auth_helper.php';
+include 'helpers/mail_helper.php';
+
 
 try {
     // Check if token is provided
@@ -81,6 +83,9 @@ try {
                 ]);
                 exit();
             }
+
+            //Send confirmation emails
+            sendBookingEmails($bookingId);
 
             // If the payment method is 'on_property', do not show "payment successful"
             if ($method === 'on_property') {
