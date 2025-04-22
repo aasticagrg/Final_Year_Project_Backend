@@ -66,7 +66,9 @@ if (isset(
     $_POST['price_per_night'],
     $_POST['check_in_time'],
     $_POST['check_out_time'],
-    $_POST['category_id']
+    $_POST['category_id'],
+    $_POST['latitude'],
+    $_POST['longitude']
 )) {
     $property_name = $_POST['property_name'];
     $city = $_POST['city'];
@@ -90,6 +92,11 @@ if (isset(
     $check_in_time = $_POST['check_in_time'];
     $check_out_time = $_POST['check_out_time'];
     $category_id = $_POST['category_id'];
+    
+    // Store coordinates as they are without validation
+    // This allows for non-standard coordinate systems
+    $latitude = $_POST['latitude'];
+    $longitude = $_POST['longitude'];
 
     // Token-related vendor_id retrieval
     $vendorData = getUserIdFromToken($token);
@@ -139,12 +146,13 @@ if (isset(
     $sql = "INSERT INTO properties (
         property_name, city, description, location, p_type, bhk, bedroom, bathroom, balcony, kitchen, wifi,
         utilities, parking, pool, pet_friendly, peoples, crib, availability_status, pimage1, pimage2, pimage3,
-        pimage4, pimage5, price_per_night, check_in_time, check_out_time, vendor_id, category_id
+        pimage4, pimage5, price_per_night, check_in_time, check_out_time, vendor_id, category_id, latitude, longitude
     ) VALUES (
         '$property_name', '$city', '$description', '$location', '$p_type', '$bhk', '$bedroom', '$bathroom', '$balcony',
         '$kitchen', '$wifi', '$utilities', '$parking', '$pool', '$pet_friendly', '$peoples', '$crib', 
         '$availability_status', '{$imagePaths[0]}', '{$imagePaths[1]}', '{$imagePaths[2]}', '{$imagePaths[3]}', 
-        '{$imagePaths[4]}', '$price_per_night', '$check_in_time', '$check_out_time', '$vendor_id', '$category_id'
+        '{$imagePaths[4]}', '$price_per_night', '$check_in_time', '$check_out_time', '$vendor_id', '$category_id',
+        '$latitude', '$longitude'
     )";
 
     $result = mysqli_query($conn, $sql);
@@ -152,7 +160,7 @@ if (isset(
     if (!$result) {
         echo json_encode([
             'success' => false,
-            'message' => 'Failed to add property',
+            'message' => 'Failed to add property: ' . mysqli_error($conn),
         ]);
         exit();
     } else {
@@ -162,9 +170,31 @@ if (isset(
         ]);
     }
 } else {
+    $missing = [];
+    $required = [
+        'property_name', 'city', 'description', 'location', 'p_type', 'bhk', 'bedroom', 'bathroom', 
+        'balcony', 'kitchen', 'wifi', 'utilities', 'parking', 'pool', 'pet_friendly', 'peoples', 
+        'crib', 'availability_status', 'price_per_night', 'check_in_time', 'check_out_time', 
+        'category_id', 'latitude', 'longitude'
+    ];
+    
+    foreach ($required as $field) {
+        if (!isset($_POST[$field])) {
+            $missing[] = $field;
+        }
+    }
+    
+    $requiredFiles = ['pimage1', 'pimage2', 'pimage3', 'pimage4', 'pimage5'];
+    foreach ($requiredFiles as $field) {
+        if (!isset($_FILES[$field])) {
+            $missing[] = $field;
+        }
+    }
+    
     echo json_encode([
         'success' => false,
         'message' => 'All required fields must be filled',
+        'missing' => $missing
     ]);
 }
 ?>
