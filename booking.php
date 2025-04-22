@@ -46,9 +46,10 @@ try {
     // Start a database transaction
     mysqli_begin_transaction($conn);
 
-    // Insert a new booking into the bookings table
-    $sql = "INSERT INTO bookings (user_id, check_in_date, check_out_date, total_price, arrival_time, full_guest_name) 
-            VALUES (?, ?, ?, ?, ?, ?)";
+    // Insert a new booking into the bookings table with initial status 'pending'
+    $sql = "INSERT INTO bookings (user_id, check_in_date, check_out_date, total_price, arrival_time, full_guest_name, booking_status) 
+        VALUES (?, ?, ?, ?, ?, ?, 'booked')";
+
 
     $total = 0;
     $stmt = mysqli_prepare($conn, $sql);

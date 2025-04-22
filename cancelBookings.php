@@ -14,6 +14,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // Include DB connection
 include 'helpers/connection.php';
 
+//  Include mail function file
+require_once 'helpers/mail_helper.php';
+
 // Allow only POST requests
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(["success" => false, "message" => "Invalid request method"]);
@@ -36,6 +39,9 @@ $stmt = $conn->prepare($query);
 $stmt->bind_param("i", $booking_id);
 
 if ($stmt->execute()) {
+    // ✅ Send cancellation email
+    sendBookingCancellationEmail($booking_id);
+
     echo json_encode(["success" => true, "message" => "Booking cancelled successfully"]);
 } else {
     echo json_encode(["success" => false, "message" => "Failed to cancel booking"]);

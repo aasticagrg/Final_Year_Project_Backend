@@ -4,7 +4,6 @@ include 'helpers/connection.php';
 include 'helpers/auth_helper.php';
 include 'helpers/mail_helper.php';
 
-
 try {
     // Check if token is provided
     if (!isset($_POST['token'])) {
@@ -35,7 +34,7 @@ try {
         $paymentDetails = $_POST['details']; // Payment gateway response (should be JSON or plain text)
         $method = $_POST['method']; // 'online' or 'on_property'
 
-        // Sanitize method input to prevent SQL injection
+        // Sanitize method input
         if (!in_array($method, ['online', 'on_property'])) {
             echo json_encode([
                 'success' => false,
@@ -44,69 +43,55 @@ try {
             exit();
         }
 
-        // Extract transaction_id if the method is 'online'
-        $transactionId = null;
-        if ($method === 'online' && isset($paymentDetails['transaction_id'])) {
-            $transactionId = $paymentDetails['transaction_id']; // Assuming the response contains a transaction_id
-        }
-
-        // Convert paymentDetails array into JSON if it's an array (prevents array to string conversion error)
+        // Convert paymentDetails array into JSON if needed
         if (is_array($paymentDetails)) {
             $paymentDetails = json_encode($paymentDetails);
         }
 
-        // Set the payment status and booking status based on the method
+        // Set the payment status based on the method
         $paymentStatus = ($method === 'online') ? 'completed' : 'pending';
-        $bookingStatus = 'booked';
+        $bookingStatus = 'booked'; // Always set to 'booked' if payment recorded successfully
 
+        // Start transaction
+        mysqli_begin_transaction($conn);
 
-        // Prepare the SQL query to insert payment details
-        $sql = "INSERT INTO payments (user_id, amount, booking_id, details, method, payment_status, payment_date, transaction_id) 
-                VALUES (?, ?, ?, ?, ?, ?, NOW(), ?)";
+        // Insert payment details
+        $sql = "INSERT INTO payments (user_id, amount, booking_id, details, method, payment_status, payment_date) 
+                VALUES (?, ?, ?, ?, ?, ?, NOW())";
         $stmt = mysqli_prepare($conn, $sql);
-        mysqli_stmt_bind_param($stmt, "iisssss", $userId, $amount, $bookingId, $paymentDetails, $method, $paymentStatus, $transactionId);
+        mysqli_stmt_bind_param($stmt, "iissss", $userId, $amount, $bookingId, $paymentDetails, $method, $paymentStatus);
 
-        // Execute the query
-        $result = mysqli_stmt_execute($stmt);
+        if (!mysqli_stmt_execute($stmt)) {
+            throw new Exception("Failed to record payment details");
+        }
 
-        if ($result) {
-            // Update the booking status
-            $sql = "UPDATE bookings SET booking_status = ? WHERE booking_id = ?";
-            $stmt = mysqli_prepare($conn, $sql);
-            mysqli_stmt_bind_param($stmt, "si", $bookingStatus, $bookingId);
-            $bookingResult = mysqli_stmt_execute($stmt);
+        // Update booking status to 'booked' (for both online and on_property)
+        $sql = "UPDATE bookings SET booking_status = ? WHERE booking_id = ?";
+        $stmt = mysqli_prepare($conn, $sql);
+        mysqli_stmt_bind_param($stmt, "si", $bookingStatus, $bookingId);
+        if (!mysqli_stmt_execute($stmt)) {
+            throw new Exception("Failed to update booking status");
+        }
 
-            if (!$bookingResult) {
-                echo json_encode([
-                    'success' => false,
-                    'message' => 'Failed to update booking status',
-                ]);
-                exit();
-            }
+        // Commit transaction
+        mysqli_commit($conn);
 
-            //Send confirmation emails
-            sendBookingEmails($bookingId);
+        // Send confirmation email
+        sendBookingEmails($bookingId);
 
-            // If the payment method is 'on_property', do not show "payment successful"
-            if ($method === 'on_property') {
-                echo json_encode([
-                    'success' => true,
-                    'message' => 'Booking created successfully',
-                ]);
-            } else {
-                echo json_encode([
-                    'success' => true,
-                    'message' => 'Payment successful',
-                ]);
-            }
-            exit();
+        // Respond based on method
+        if ($method === 'on_property') {
+            echo json_encode([
+                'success' => true,
+                'message' => 'Booking created successfully, payment pending at property',
+            ]);
         } else {
             echo json_encode([
-                'success' => false,
-                'message' => 'Payment failed',
+                'success' => true,
+                'message' => 'Payment successful',
             ]);
-            exit();
         }
+
     } else {
         echo json_encode([
             'success' => false,
@@ -114,8 +99,10 @@ try {
         ]);
         exit();
     }
+
 } catch (Exception $e) {
-    // Handle any exceptions that might occur
+    mysqli_rollback($conn);
+
     echo json_encode([
         'success' => false,
         'message' => 'An error occurred: ' . $e->getMessage(),

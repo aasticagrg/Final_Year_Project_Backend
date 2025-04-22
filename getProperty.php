@@ -22,8 +22,10 @@ $sql = "SELECT properties.*, categories.category_name,
         AVG(reviews.rating) AS average_rating
         FROM properties 
         JOIN categories ON properties.category_id = categories.category_id 
+        JOIN vendors ON properties.vendor_id = vendors.vendor_id 
         LEFT JOIN reviews ON properties.property_id = reviews.property_id
-        WHERE 1=1";
+        WHERE vendors.account_status = 'active'";
+
 
 // ✅ Apply filters
 
