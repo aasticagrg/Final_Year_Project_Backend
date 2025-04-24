@@ -66,6 +66,7 @@ try {
         JOIN properties p ON bp.property_id = p.property_id
         JOIN users u ON b.user_id = u.user_id
         WHERE bp.vendor_id = ? 
+        AND b.booking_status IN ('booked', 'cancelled')
           AND (
               u.name LIKE ? OR 
               u.email LIKE ? OR 

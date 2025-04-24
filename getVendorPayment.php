@@ -17,7 +17,6 @@ $sql = "
         p.amount,
         p.method,
         p.payment_date,
-        p.transaction_id,
         p.payment_status,
         bp.booking_id,
         pr.property_id,

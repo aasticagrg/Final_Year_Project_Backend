@@ -48,7 +48,7 @@ try {
 
     // Insert a new booking into the bookings table with initial status 'pending'
     $sql = "INSERT INTO bookings (user_id, check_in_date, check_out_date, total_price, arrival_time, full_guest_name, booking_status) 
-        VALUES (?, ?, ?, ?, ?, ?, 'booked')";
+        VALUES (?, ?, ?, ?, ?, ?, '')";
 
 
     $total = 0;

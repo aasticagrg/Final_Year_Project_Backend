@@ -11,7 +11,7 @@ $price = isset($_GET['price']) ? intval($_GET['price']) : null;
 
 $facilities = ['wifi', 'pool', 'pets', 'parking', 'family'];
 
-// 🔹 Get average price
+// Get average price
 $avgQuery = "SELECT AVG(price_per_night) AS avg_price FROM properties";
 $avgResult = mysqli_query($conn, $avgQuery);
 $avgData = mysqli_fetch_assoc($avgResult);
@@ -27,14 +27,14 @@ $sql = "SELECT properties.*, categories.category_name,
         WHERE vendors.account_status = 'active'";
 
 
-// ✅ Apply filters
+
 
 // City filter
 if ($city) {
     $sql .= " AND properties.city = '$city'";
 }
 
-// ✅ Apply category — check for budget, luxury, or family-friendly
+// category — check for budget, luxury, or family-friendly
 if ($category) {
     if (strtolower($category) === "budget") {
         $sql .= " AND properties.price_per_night <= $avgPrice";
@@ -47,19 +47,23 @@ if ($category) {
     }
 }
 
-// ✅ Explicit budget filter
+// Explicit budget filter
 if ($budget === "low") {
     $sql .= " AND properties.price_per_night <= $avgPrice";
 } elseif ($budget === "high") {
     $sql .= " AND properties.price_per_night > $avgPrice";
 }
 
-// ✅ Apply explicit max price filter
+// Apply explicit max price filter
 if ($price) {
-    $sql .= " AND properties.price_per_night <= $price";
+    $buffer = round($price * 0.15); // 15% buffer range
+    $minPrice = max(0, $price - $buffer);
+    $maxPrice = $price + $buffer;
+    $sql .= " AND properties.price_per_night BETWEEN $minPrice AND $maxPrice";
 }
 
-// ✅ Facilities filters
+
+// Facilities filters
 foreach ($facilities as $facility) {
     if (isset($_GET[$facility]) && $_GET[$facility] === "1") {
         if ($facility === "wifi") {
@@ -76,7 +80,7 @@ foreach ($facilities as $facility) {
     }
 }
 
-// 🔹 Liked properties filter 
+// Liked properties filter 
 if (isset($_GET['liked_ids'])) {
     $likedIds = $_GET['liked_ids'];
     $likedIdsArray = explode(',', $likedIds);
@@ -95,7 +99,7 @@ if (!empty($ratingValues)) {
 }
 
 
-// 🔍 Run query
+//  Run query
 $result = mysqli_query($conn, $sql);
 
 if (!$result) {
@@ -106,7 +110,7 @@ if (!$result) {
     exit();
 }
 
-// ✅ Output response
+// Output response
 $properties = mysqli_fetch_all($result, MYSQLI_ASSOC);
 
 echo json_encode([

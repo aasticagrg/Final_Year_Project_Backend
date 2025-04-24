@@ -134,11 +134,12 @@ while ($row = $result->fetch_assoc()) {
 // 6. Recent Bookings
 $recentBookings = [];
 $bookingQuery = "
-    SELECT b.booking_id, IFNULL(b.booking_status, 'unknown') AS booking_status, u.name, p.property_name, b.created_at
+    SELECT b.booking_id,b.booking_status, u.name, p.property_name, b.created_at
     FROM bookings b
     JOIN booking_properties bp ON bp.booking_id = b.booking_id
     JOIN properties p ON p.property_id = bp.property_id
     JOIN users u ON u.user_id = b.user_id
+    WHERE b.booking_status IN ('booked', 'cancelled')
     ORDER BY b.created_at DESC
     LIMIT 5
 ";

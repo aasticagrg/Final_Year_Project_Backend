@@ -53,7 +53,10 @@ $sql = "SELECT
         INNER JOIN properties p ON bp.property_id = p.property_id
         LEFT JOIN payments pay ON pay.booking_id = b.booking_id
         WHERE b.user_id = ?
+          AND b.booking_status IN ('booked', 'cancelled')
+          AND (pay.payment_status = 'completed' OR pay.payment_status = 'pending')
         ORDER BY b.check_in_date DESC";
+
 
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $user_id);
