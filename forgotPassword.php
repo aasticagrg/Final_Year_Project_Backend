@@ -9,81 +9,97 @@ $data = json_decode(file_get_contents('php://input'), true);
 
 if (isset($data['email'])) {
     $email = $data['email'];
+    $code = rand(111111, 999999);  // Generate random reset code
 
-    // Check both users and vendors for the email
-    $sql = "SELECT * FROM users WHERE email = ? UNION SELECT * FROM vendors WHERE vendor_email = ?";
+    $userId = null;
+    $accountType = null;
+
+    // First check in users table
+    $sql = "SELECT user_id AS id FROM users WHERE email = ?";
     $stmt = mysqli_prepare($conn, $sql);
-    mysqli_stmt_bind_param($stmt, "ss", $email, $email);
+    mysqli_stmt_bind_param($stmt, "s", $email);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
-
-    if (mysqli_num_rows($result) === 0) {
-        echo json_encode([
-            'success' => false,
-            'message' => 'Email not registered',
-        ]);
-        exit();
-    }
-
     $user = mysqli_fetch_assoc($result);
-    $code = rand(111111, 999999);  // Generate random code
 
-    // Check if it's a user or a vendor and update accordingly
-    if (isset($user['user_id'])) {
-        // It's a user
-        $userId = $user['user_id'];
-        $sql = "UPDATE users SET reset_code = ? WHERE user_id = ?";
+    if ($user) {
+        $userId = $user['id'];
+        $accountType = 'user';
     } else {
-        // It's a vendor
-        $userId = $user['vendor_id'];
-        $sql = "UPDATE vendors SET reset_code = ? WHERE vendor_id = ?";
+        // Then check in vendors table
+        $sql = "SELECT vendor_id AS id FROM vendors WHERE vendor_email = ?";
+        $stmt = mysqli_prepare($conn, $sql);
+        mysqli_stmt_bind_param($stmt, "s", $email);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        $vendor = mysqli_fetch_assoc($result);
+
+        if ($vendor) {
+            $userId = $vendor['id'];
+            $accountType = 'vendor';
+        } else {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Email not registered',
+            ]);
+            exit();
+        }
     }
 
-    $stmt = mysqli_prepare($conn, $sql);
+    // Update reset code based on account type
+    if ($accountType === 'user') {
+        $updateSql = "UPDATE users SET reset_code = ? WHERE user_id = ?";
+    } else {
+        $updateSql = "UPDATE vendors SET reset_code = ? WHERE vendor_id = ?";
+    }
+
+    $stmt = mysqli_prepare($conn, $updateSql);
     mysqli_stmt_bind_param($stmt, "si", $code, $userId);
     $result = mysqli_stmt_execute($stmt);
 
     if (!$result) {
         echo json_encode([
             'success' => false,
-            'message' => 'Failed to update code',
+            'message' => 'Failed to update reset code',
         ]);
         exit();
     }
 
     // Send the reset code via email
-    $mail = new PHPMailer();
-    $mail->isSMTP();
-    $mail->Host = 'smtp.gmail.com';
-    $mail->SMTPAuth = true;
-    $mail->Username = 'aasticagrg00@gmail.com';
-    $mail->Password = 'tzkh mvhl cayt oobv';
-    $mail->SMTPSecure = 'tls';
-    $mail->Port = 587;
-    $mail->SMTPOptions = array(
-        'ssl' => array(
-            'verify_peer' => false,
-            'verify_peer_name' => false,
-            'allow_self_signed' => true
-        )
-    );
+    $mail = new PHPMailer(true);
+    try {
+        $mail->isSMTP();
+        $mail->Host = 'smtp.gmail.com';
+        $mail->SMTPAuth = true;
+        $mail->Username = 'aasticagrg00@gmail.com';
+        $mail->Password = 'tzkh mvhl cayt oobv';  // Use App Passwords, not your main password!
+        $mail->SMTPSecure = 'tls';
+        $mail->Port = 587;
 
-    $mail->setFrom('aasticagrg00@gmail.com.com');
-    $mail->addAddress($email);
-    $mail->Subject = 'Reset Password Code for Your Account';
-    $mail->Body = "Your reset password code is $code";
+        // Optional for self-signed certs
+        $mail->SMTPOptions = array(
+            'ssl' => array(
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+                'allow_self_signed' => true,
+            ),
+        );
 
-    $isMailSent = $mail->send();
+        $mail->setFrom('aasticagrg00@gmail.com', 'Your Booking Platform');
+        $mail->addAddress($email);
+        $mail->Subject = 'Reset Password Code';
+        $mail->Body = "Your password reset code is: $code";
 
-    if ($isMailSent) {
+        $mail->send();
+
         echo json_encode([
             'success' => true,
             'message' => 'Code sent to your email',
         ]);
-    } else {
+    } catch (Exception $e) {
         echo json_encode([
             'success' => false,
-            'message' => 'Failed to send code',
+            'message' => 'Failed to send email. Error: ' . $mail->ErrorInfo,
         ]);
     }
 } else {
