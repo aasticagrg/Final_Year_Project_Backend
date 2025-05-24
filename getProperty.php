@@ -26,15 +26,12 @@ $sql = "SELECT properties.*, categories.category_name,
         LEFT JOIN reviews ON properties.property_id = reviews.property_id
         WHERE vendors.account_status = 'active'";
 
-
-
-
 // City filter
 if ($city) {
     $sql .= " AND properties.city = '$city'";
 }
 
-// category — check for budget, luxury, or family-friendly
+// Category filter
 if ($category) {
     if (strtolower($category) === "budget") {
         $sql .= " AND properties.price_per_night <= $avgPrice";
@@ -47,21 +44,20 @@ if ($category) {
     }
 }
 
-// Explicit budget filter
+// Budget filter
 if ($budget === "low") {
     $sql .= " AND properties.price_per_night <= $avgPrice";
 } elseif ($budget === "high") {
     $sql .= " AND properties.price_per_night > $avgPrice";
 }
 
-// Apply explicit max price filter
+// Price range filter
 if ($price) {
-    $buffer = round($price * 0.15); // 15% buffer range
+    $buffer = round($price * 0.15); // 15% buffer
     $minPrice = max(0, $price - $buffer);
     $maxPrice = $price + $buffer;
     $sql .= " AND properties.price_per_night BETWEEN $minPrice AND $maxPrice";
 }
-
 
 // Facilities filters
 foreach ($facilities as $facility) {
@@ -80,7 +76,7 @@ foreach ($facilities as $facility) {
     }
 }
 
-// Liked properties filter 
+// Liked properties filter
 if (isset($_GET['liked_ids'])) {
     $likedIds = $_GET['liked_ids'];
     $likedIdsArray = explode(',', $likedIds);
@@ -91,15 +87,19 @@ if (isset($_GET['liked_ids'])) {
     }
 }
 
+// Group by property ID (required for AVG aggregation)
+$sql .= " GROUP BY properties.property_id";
+
+// Apply rating filter with HAVING only if ratings filter exists
 if (!empty($ratingValues)) {
-    $escapedRatings = implode(",", $ratingValues);
-    $sql .= " GROUP BY properties.property_id HAVING AVG(reviews.rating) IN ($escapedRatings)";
-} else {
-    $sql .= " GROUP BY properties.property_id";
+    $escapedRatings = implode(",", array_map('intval', $ratingValues));
+    $sql .= " HAVING ROUND(AVG(reviews.rating)) IN ($escapedRatings)";
 }
 
+// Sort by newest registered properties first
+$sql .= " ORDER BY properties.registered_at DESC";
 
-//  Run query
+// Run query
 $result = mysqli_query($conn, $sql);
 
 if (!$result) {
@@ -110,9 +110,15 @@ if (!$result) {
     exit();
 }
 
-// Output response
-$properties = mysqli_fetch_all($result, MYSQLI_ASSOC);
+// Format output
+$properties = [];
+while ($row = mysqli_fetch_assoc($result)) {
+    $row['rating'] = round($row['average_rating'], 1); // Add rounded rating field
+    unset($row['average_rating']); // Remove original average_rating field
+    $properties[] = $row;
+}
 
+// Output response
 echo json_encode([
     'success' => true,
     'average_price' => $avgPrice,

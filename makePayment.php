@@ -76,10 +76,7 @@ try {
         // Commit transaction
         mysqli_commit($conn);
 
-        // Send confirmation email
-        sendBookingEmails($bookingId);
-
-        // Respond based on method
+        // Respond first
         if ($method === 'on_property') {
             echo json_encode([
                 'success' => true,
@@ -90,6 +87,16 @@ try {
                 'success' => true,
                 'message' => 'Payment successful',
             ]);
+        }
+
+        // Finish request to avoid delaying frontend response
+        if (function_exists('fastcgi_finish_request')) {
+            fastcgi_finish_request();
+        }
+
+        // Send email only for successful online payments
+        if ($method === 'online' && $paymentStatus === 'completed') {
+            sendBookingEmails($bookingId);
         }
 
     } else {

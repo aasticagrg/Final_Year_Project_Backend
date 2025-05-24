@@ -29,32 +29,52 @@ $input = json_decode(file_get_contents("php://input"), true);
 if (isset($input['property_id'])) {
     $property_id = $input['property_id'];
 
-    $sql = "DELETE FROM properties WHERE property_id = ?";
-    $stmt = $conn->prepare($sql);
+    // Begin transaction
+    $conn->begin_transaction();
 
-    if (!$stmt) {
-        echo json_encode([
-            'success' => false,
-            'message' => 'Error preparing the statement',
-        ]);
-        exit();
-    }
+    try {
+        // First, delete related records from booking_properties
+        $deleteBookings = $conn->prepare("DELETE FROM booking_properties WHERE property_id = ?");
+        if (!$deleteBookings) {
+            throw new Exception('Error preparing statement for deleting booking properties');
+        }
+        $deleteBookings->bind_param("i", $property_id);
+        $deleteBookings->execute();
+        $deleteBookings->close();
 
-    $stmt->bind_param("i", $property_id);
+        // Then, delete related records from reviews
+        $deleteReviews = $conn->prepare("DELETE FROM reviews WHERE property_id = ?");
+        if (!$deleteReviews) {
+            throw new Exception('Error preparing statement for deleting reviews');
+        }
+        $deleteReviews->bind_param("i", $property_id);
+        $deleteReviews->execute();
+        $deleteReviews->close();
 
-    if ($stmt->execute()) {
+        // Finally, delete the property
+        $deleteProperty = $conn->prepare("DELETE FROM properties WHERE property_id = ?");
+        if (!$deleteProperty) {
+            throw new Exception('Error preparing statement for deleting property');
+        }
+        $deleteProperty->bind_param("i", $property_id);
+        $deleteProperty->execute();
+        $deleteProperty->close();
+
+        // Commit the transaction
+        $conn->commit();
+
         echo json_encode([
             'success' => true,
             'message' => 'Property deleted successfully',
         ]);
-    } else {
+    } catch (Exception $e) {
+        // Rollback the transaction on error
+        $conn->rollback();
         echo json_encode([
             'success' => false,
-            'message' => 'Error deleting property',
+            'message' => 'Error deleting property: ' . $e->getMessage(),
         ]);
     }
-
-    $stmt->close();
 } else {
     echo json_encode([
         'success' => false,
